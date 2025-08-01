@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Personal Diary</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-book-open"></i> My Personal Diary</h1>
+            <p>Your private space for thoughts and memories</p>
+        </header>
+
+        <!-- Authentication Section -->
+        <section class="auth-section" id="authSection">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="showLoginForm()">Login</button>
+                    <button class="auth-tab" onclick="showRegisterForm()">Register</button>
+                </div>
+                
+                <!-- Login Form -->
+                <form class="auth-form" id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+
+                <!-- Register Form -->
+                <form class="auth-form" id="registerForm" style="display: none;">
+                    <div class="form-group">
+                        <label for="registerUsername">Username</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Main Content (hidden until authenticated) -->
+        <main class="main-content" id="mainContent" style="display: none;">
+            <!-- Profile Section -->
+            <section class="profile-section">
+                <div class="profile-header">
+                    <div class="profile-info">
+                        <h2>Welcome, <span id="userUsername">User</span>!</h2>
+                        <p id="userEmail">user@example.com</p>
+                    </div>
+                    <div class="profile-actions">
+                        <button class="btn btn-secondary" onclick="showProfileModal()">
+                            <i class="fas fa-user"></i> Profile
+                        </button>
+                        <button class="btn btn-danger" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Categories Section -->
+            <section class="categories-section" id="categoriesSection">
+                <div class="section-header">
+                    <h2>Categories</h2>
+                    <button class="btn btn-primary" onclick="showAddCategoryModal()">
+                        <i class="fas fa-plus"></i> Add Category
+                    </button>
+                </div>
+                <div class="categories-grid" id="categoriesGrid">
+                    <!-- Categories will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Entries Section (hidden by default) -->
+            <section class="entries-section" id="entriesSection" style="display: none;">
+                <div class="section-header">
+                    <button class="btn btn-secondary" onclick="showCategories()">
+                        <i class="fas fa-arrow-left"></i> Back to Categories
+                    </button>
+                    <h2 id="currentCategoryName">Category Entries</h2>
+                    <button class="btn btn-primary" onclick="showAddEntryModal()">
+                        <i class="fas fa-plus"></i> Add Entry
+                    </button>
+                </div>
+                <div class="entries-grid" id="entriesGrid">
+                    <!-- Entries will be loaded here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div class="modal" id="addCategoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Category</h3>
+                <button class="close-btn" onclick="closeModal('addCategoryModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addCategoryForm">
+                <div class="form-group">
+                    <label for="categoryName">Category Name</label>
+                    <input type="text" id="categoryName" required placeholder="Enter category name">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="categoryEmoji">Emoji (Optional)</label>
+                        <input type="text" id="categoryEmoji" placeholder="📚 🎓 💡" maxlength="2">
+                        <small>Add an emoji to make your category more personal</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="categoryColor">Color</label>
+                        <input type="color" id="categoryColor" value="#607D8B">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addCategoryModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div class="modal" id="addEntryModal">
+        <div class="modal-content entry-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Write Your Thoughts</h3>
+                <button class="close-btn" onclick="closeModal('addEntryModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addEntryForm">
+                <div class="form-group">
+                    <label for="entryTitle">
+                        <i class="fas fa-heading"></i> Title
+                    </label>
+                    <input type="text" id="entryTitle" required placeholder="Give your entry a meaningful title">
+                </div>
+                <div class="form-group">
+                    <label for="entryContent">
+                        <i class="fas fa-pen"></i> Your Thoughts
+                    </label>
+                    <div class="entry-editor">
+                        <textarea id="entryContent" rows="12" required placeholder="Write your thoughts, feelings, memories, or anything that's on your mind...&#10;&#10;This is your private space to express yourself freely."></textarea>
+                        <div class="entry-tools">
+                            <div class="word-count">
+                                <span id="wordCount">0</span> words
+                            </div>
+                            <div class="entry-tips">
+                                <i class="fas fa-lightbulb"></i>
+                                <span>Write from your heart - this is your personal space</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addEntryModal')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Entry Modal -->
+    <div class="modal" id="viewEntryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="viewEntryTitle">Entry Title</h3>
+                <button class="close-btn" onclick="closeModal('viewEntryModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="entry-content">
+                <p id="viewEntryContent"></p>
+                <div class="entry-meta">
+                    <span id="viewEntryDate"></span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-danger" onclick="deleteCurrentEntry()">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('viewEntryModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Profile Information</h3>
+                <button class="close-btn" onclick="closeModal('profileModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="profile-content">
+                <div class="profile-field">
+                    <label>Username:</label>
+                    <span id="profileUsername"></span>
+                </div>
+                <div class="profile-field">
+                    <label>Email:</label>
+                    <span id="profileEmail"></span>
+                </div>
+                <div class="profile-field">
+                    <label>Member Since:</label>
+                    <span id="profileCreatedAt"></span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeModal('profileModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

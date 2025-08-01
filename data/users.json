@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1754090252539,
+    "username": "Aviral",
+    "email": "aviral1754@gmail.com",
+    "password": "$2a$10$PLRlo9IqLUeR/gmJ6yWkXOgRgbV7tNLNOP2Bq0W4tGBLyrynILwB2",
+    "createdAt": "2025-08-01T23:17:32.539Z"
+  },
+  {
+    "id": 1754090319158,
+    "username": "sif",
+    "email": "sif@g.com",
+    "password": "$2a$10$Gbvwc6Hk62hWmbiGOUMD9eCtExC7XCukgKqlMsiPRaT1BuoXiVcjW",
+    "createdAt": "2025-08-01T23:18:39.158Z"
+  },
+  {
+    "id": 1754090829849,
+    "username": "sif1",
+    "email": "Safura@gmail.com",
+    "password": "$2a$10$qlR5AWwMRSbgmDJptioFNem/Z1ceQ1Ie9dPxHuhyyA4MmlDWKZ5X.",
+    "createdAt": "2025-08-01T23:27:09.849Z"
+  }
+]
