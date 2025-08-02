@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Personal Diary</title>
+    <title>Dear Diary</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -12,7 +12,7 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1><i class="fas fa-book-open"></i> My Personal Diary</h1>
+            <h1><i class="fas fa-book-open"></i> Dear Diary</h1>
             <p>Your private space for thoughts and memories</p>
         </header>
 
@@ -66,6 +66,21 @@
                         <p id="userEmail">user@example.com</p>
                     </div>
                     <div class="profile-actions">
+                        <div class="theme-switcher">
+                            <label for="themeColor">Theme:</label>
+                            <select id="themeColor" onchange="changeTheme()">
+                                <option value="elegant-blue">Elegant Blue</option>
+                                <option value="elegant-purple">Elegant Purple</option>
+                                <option value="elegant-green">Elegant Green</option>
+                                <option value="elegant-rose">Elegant Rose</option>
+                                <option value="elegant-gold">Elegant Gold</option>
+                                <option value="elegant-silver">Elegant Silver</option>
+                                <option value="elegant-teal">Elegant Teal</option>
+                                <option value="elegant-lavender">Elegant Lavender</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
                         <button class="btn btn-secondary" onclick="showProfileModal()">
                             <i class="fas fa-user"></i> Profile
                         </button>
@@ -124,7 +139,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="categoryEmoji">Emoji (Optional)</label>
-                        <input type="text" id="categoryEmoji" placeholder="📚 🎓 💡" maxlength="2">
+                        <input type="text" id="categoryEmoji" placeholder="�� 🎓 💡" maxlength="2">
                         <small>Add an emoji to make your category more personal</small>
                     </div>
                     <div class="form-group">
@@ -240,4 +255,4 @@
 
     <script src="script.js"></script>
 </body>
-</html> 
+</html>

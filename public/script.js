@@ -6,14 +6,18 @@ let entries = [];
 let allEntries = []; // Store all entries for counting
 let currentUser = null;
 let authToken = localStorage.getItem('authToken');
+let currentTheme = localStorage.getItem('theme') || 'elegant-blue';
 
-// API Base URL
-const API_BASE = 'http://localhost:3000/api';
+// API Base URL - handles both development and production
+const API_BASE = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000/api' 
+  : `${window.location.protocol}//${window.location.host}/api`;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     checkAuthStatus();
+    initializeTheme();
 });
 
 // Setup event listeners
@@ -60,6 +64,7 @@ function showMainContent() {
     document.getElementById('authSection').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
     loadCategories();
+    initializeTheme(); // Initialize theme when user logs in
 }
 
 // Authentication functions
@@ -189,9 +194,40 @@ function showProfileModal() {
     if (currentUser) {
         document.getElementById('profileUsername').textContent = currentUser.username;
         document.getElementById('profileEmail').textContent = currentUser.email;
-        document.getElementById('profileCreatedAt').textContent = new Date(currentUser.createdAt).toLocaleDateString();
+        
+        // Robust date formatting
+        let dateStr = 'N/A';
+        if (currentUser.createdAt) {
+            const date = new Date(currentUser.createdAt);
+            if (!isNaN(date.getTime())) {
+                dateStr = date.toLocaleDateString(undefined, { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            }
+        }
+        document.getElementById('profileCreatedAt').textContent = dateStr;
         document.getElementById('profileModal').style.display = 'block';
     }
+}
+
+// Theme management
+function initializeTheme() {
+    document.body.setAttribute('data-theme', currentTheme);
+    const themeSelect = document.getElementById('themeColor');
+    if (themeSelect) themeSelect.value = currentTheme;
+}
+
+function changeTheme() {
+    const themeSelect = document.getElementById('themeColor');
+    const newTheme = themeSelect.value;
+    
+    currentTheme = newTheme;
+    document.body.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    showNotification(`Theme changed to ${newTheme}!`, 'success');
 }
 
 // API Functions with authentication
@@ -366,27 +402,22 @@ function closeModal(modalId) {
         document.getElementById('addCategoryForm').reset();
     } else if (modalId === 'addEntryModal') {
         document.getElementById('addEntryForm').reset();
-        updateWordCount(); // Reset word count
+        document.getElementById('wordCount').textContent = '0';
     }
 }
 
-// Handle add category
+// Add category
 async function handleAddCategory(event) {
     event.preventDefault();
     
-    const name = document.getElementById('categoryName').value.trim();
-    const color = document.getElementById('categoryColor').value;
+    const name = document.getElementById('categoryName').value;
     const emoji = document.getElementById('categoryEmoji').value;
-    
-    if (!name) {
-        showNotification('Please enter a category name', 'error');
-        return;
-    }
+    const color = document.getElementById('categoryColor').value;
     
     try {
         const newCategory = await fetchAPI('/categories', {
             method: 'POST',
-            body: JSON.stringify({ name, color, emoji })
+            body: JSON.stringify({ name, emoji, color })
         });
         
         categories.push(newCategory);
@@ -398,17 +429,12 @@ async function handleAddCategory(event) {
     }
 }
 
-// Handle add entry
+// Add entry
 async function handleAddEntry(event) {
     event.preventDefault();
     
-    const title = document.getElementById('entryTitle').value.trim();
-    const content = document.getElementById('entryContent').value.trim();
-    
-    if (!title || !content) {
-        showNotification('Please fill in all fields', 'error');
-        return;
-    }
+    const title = document.getElementById('entryTitle').value;
+    const content = document.getElementById('entryContent').value;
     
     try {
         const newEntry = await fetchAPI('/entries', {
@@ -421,7 +447,7 @@ async function handleAddEntry(event) {
         });
         
         entries.push(newEntry);
-        allEntries.push(newEntry); // Update all entries for counting
+        allEntries.push(newEntry); // Add to all entries for counting
         renderEntries();
         renderCategories(); // Update category counts
         closeModal('addEntryModal');
@@ -432,24 +458,34 @@ async function handleAddEntry(event) {
 }
 
 // View entry
-function viewEntry(entryId) {
-    const entry = entries.find(e => e.id === entryId);
-    if (!entry) return;
-    
-    currentEntryId = entryId;
-    
-    document.getElementById('viewEntryTitle').textContent = entry.title;
-    document.getElementById('viewEntryContent').textContent = entry.content;
-    document.getElementById('viewEntryDate').textContent = `Created: ${new Date(entry.createdAt).toLocaleString()}`;
-    
-    document.getElementById('viewEntryModal').style.display = 'block';
+async function viewEntry(entryId) {
+    try {
+        const entry = await fetchAPI(`/entries/${entryId}`);
+        currentEntryId = entryId;
+        
+        document.getElementById('viewEntryTitle').textContent = entry.title;
+        document.getElementById('viewEntryContent').textContent = entry.content;
+        document.getElementById('viewEntryDate').textContent = new Date(entry.createdAt).toLocaleDateString();
+        
+        document.getElementById('viewEntryModal').style.display = 'block';
+    } catch (error) {
+        showNotification('Failed to load entry', 'error');
+    }
 }
 
-// Delete functions
+// Delete category
 async function deleteCategory(categoryId, event) {
     event.stopPropagation();
     
-    if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+    const category = categories.find(cat => cat.id === categoryId);
+    const entryCount = allEntries.filter(entry => entry.categoryId === categoryId).length;
+    
+    if (entryCount > 0) {
+        showNotification(`Cannot delete category with ${entryCount} entries. Please delete the entries first.`, 'error');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete "${category.name}"?`)) {
         return;
     }
     
@@ -462,14 +498,15 @@ async function deleteCategory(categoryId, event) {
         renderCategories();
         showNotification('Category deleted successfully!', 'success');
     } catch (error) {
-        showNotification('Failed to delete category. Make sure it has no entries.', 'error');
+        showNotification('Failed to delete category', 'error');
     }
 }
 
+// Delete entry
 async function deleteEntry(entryId, event) {
     event.stopPropagation();
     
-    if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete this entry?')) {
         return;
     }
     
@@ -479,7 +516,7 @@ async function deleteEntry(entryId, event) {
         });
         
         entries = entries.filter(entry => entry.id !== entryId);
-        allEntries = allEntries.filter(entry => entry.id !== entryId); // Update all entries
+        allEntries = allEntries.filter(entry => entry.id !== entryId);
         renderEntries();
         renderCategories(); // Update category counts
         showNotification('Entry deleted successfully!', 'success');
@@ -488,12 +525,9 @@ async function deleteEntry(entryId, event) {
     }
 }
 
+// Delete current entry (from view modal)
 async function deleteCurrentEntry() {
     if (!currentEntryId) return;
-    
-    if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
-        return;
-    }
     
     try {
         await fetchAPI(`/entries/${currentEntryId}`, {
@@ -501,14 +535,22 @@ async function deleteCurrentEntry() {
         });
         
         entries = entries.filter(entry => entry.id !== currentEntryId);
-        allEntries = allEntries.filter(entry => entry.id !== currentEntryId); // Update all entries
+        allEntries = allEntries.filter(entry => entry.id !== currentEntryId);
         renderEntries();
         renderCategories(); // Update category counts
         closeModal('viewEntryModal');
         showNotification('Entry deleted successfully!', 'success');
+        currentEntryId = null;
     } catch (error) {
         showNotification('Failed to delete entry', 'error');
     }
+}
+
+// Word count functionality
+function updateWordCount() {
+    const content = document.getElementById('entryContent').value;
+    const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
+    document.getElementById('wordCount').textContent = wordCount;
 }
 
 // Utility functions
@@ -532,39 +574,42 @@ function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    notification.textContent = message;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+        </div>
+    `;
     
     // Add styles
     notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
+        background: ${getNotificationColor(type)};
+        color: white;
         padding: 15px 20px;
         border-radius: 10px;
-        color: white;
-        font-weight: 500;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         z-index: 10000;
-        animation: slideIn 0.3s ease;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
         max-width: 300px;
-        word-wrap: break-word;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.9rem;
     `;
-    
-    // Set background color based on type
-    const colors = {
-        success: '#4CAF50',
-        error: '#f44336',
-        info: '#2196F3',
-        warning: '#ff9800'
-    };
-    
-    notification.style.backgroundColor = colors[type] || colors.info;
     
     // Add to page
     document.body.appendChild(notification);
     
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
     // Remove after 3 seconds
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
+        notification.style.transform = 'translateX(400px)';
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
@@ -573,29 +618,39 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Add CSS animations for notifications
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+function getNotificationIcon(type) {
+    const icons = {
+        success: 'check-circle',
+        error: 'exclamation-circle',
+        warning: 'exclamation-triangle',
+        info: 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+function getNotificationColor(type) {
+    const colors = {
+        success: '#4CAF50',
+        error: '#f44336',
+        warning: '#ff9800',
+        info: '#2196F3'
+    };
+    return colors[type] || '#2196F3';
+}
+
+// Add notification styles to head
+const notificationStyles = `
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
+    .notification-content i {
+        font-size: 1.1rem;
     }
 `;
-document.head.appendChild(style); 
+
+const styleSheet = document.createElement('style');
+styleSheet.textContent = notificationStyles;
+document.head.appendChild(styleSheet);

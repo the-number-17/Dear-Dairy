@@ -1,103 +1,65 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs').promises;
+const path = require('path');
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = 'your-super-secret-jwt-key-change-this-in-production';
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Data file paths
-const usersFile = path.join(__dirname, 'data', 'users.json');
-const dataDir = path.join(__dirname, 'data');
-
-// Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
-}
-
-// Initialize users file if it doesn't exist
-if (!fs.existsSync(usersFile)) {
-    fs.writeFileSync(usersFile, JSON.stringify([], null, 2));
-}
-
-// Helper function to read users
-function readUsers() {
+// Helper functions
+async function readUsers() {
     try {
-        const data = fs.readFileSync(usersFile, 'utf8');
+        const data = await fs.readFile('users.json', 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        console.error('Error reading users:', error);
         return [];
     }
 }
 
-// Helper function to write users
-function writeUsers(users) {
-    try {
-        fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
-        return true;
-    } catch (error) {
-        console.error('Error writing users:', error);
-        return false;
-    }
+async function writeUsers(users) {
+    await fs.writeFile('users.json', JSON.stringify(users, null, 2));
 }
 
-// Helper function to get user data file path
 function getUserDataFile(userId) {
-    return path.join(__dirname, 'data', `diary_${userId}.json`);
+    return `diary_${userId}.json`;
 }
 
-// Helper function to read user data
-function readUserData(userId) {
-    const dataFile = getUserDataFile(userId);
+async function readUserData(userId) {
     try {
-        if (fs.existsSync(dataFile)) {
-            const data = fs.readFileSync(dataFile, 'utf8');
-            return JSON.parse(data);
-        } else {
-            // Initialize with default categories
-            const initialData = {
-                categories: [
-                    { id: 1, name: 'Education', color: '#4CAF50', emoji: '📚' },
-                    { id: 2, name: 'Friends', color: '#2196F3', emoji: '👥' },
-                    { id: 3, name: 'Future', color: '#FF9800', emoji: '🚀' },
-                    { id: 4, name: 'Wishes', color: '#E91E63', emoji: '⭐' },
-                    { id: 5, name: 'Clothes', color: '#9C27B0', emoji: '👕' },
-                    { id: 6, name: 'Love', color: '#F44336', emoji: '❤️' }
-                ],
-                entries: []
-            };
-            fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
-            return initialData;
-        }
+        const data = await fs.readFile(getUserDataFile(userId), 'utf8');
+        return JSON.parse(data);
     } catch (error) {
-        console.error('Error reading user data:', error);
-        return { categories: [], entries: [] };
+        // Return default structure for new users
+        return {
+            categories: [
+                { id: 1, name: 'Education', color: '#607D8B', emoji: '🎓' },
+                { id: 2, name: 'Friends', color: '#4CAF50', emoji: '👥' },
+                { id: 3, name: 'Future', color: '#2196F3', emoji: '🚀' },
+                { id: 4, name: 'Wishes', color: '#FF9800', emoji: '⭐' },
+                { id: 5, name: 'Clothes', color: '#E91E63', emoji: '👕' },
+                { id: 6, name: 'Love', color: '#9C27B0', emoji: '💖' }
+            ],
+            entries: [],
+            nextCategoryId: 7,
+            nextEntryId: 1
+        };
     }
 }
 
-// Helper function to write user data
-function writeUserData(userId, data) {
-    try {
-        const dataFile = getUserDataFile(userId);
-        fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
-        return true;
-    } catch (error) {
-        console.error('Error writing user data:', error);
-        return false;
-    }
+async function writeUserData(userId, userData) {
+    await fs.writeFile(getUserDataFile(userId), JSON.stringify(userData, null, 2));
 }
 
-// JWT Middleware
+// Authentication middleware
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -115,35 +77,36 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// Authentication Routes
-
-// Register user
+// Authentication routes
 app.post('/api/auth/register', async (req, res) => {
-    const { username, email, password } = req.body;
-
-    if (!username || !email || !password) {
-        return res.status(400).json({ error: 'All fields are required' });
-    }
-
-    if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-
-    const users = readUsers();
-
-    // Check if user already exists
-    if (users.find(user => user.email === email)) {
-        return res.status(400).json({ error: 'Email already registered' });
-    }
-
-    if (users.find(user => user.username === username)) {
-        return res.status(400).json({ error: 'Username already taken' });
-    }
-
     try {
+        const { username, email, password } = req.body;
+
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        const users = await readUsers();
+
+        // Check if email or username already exists
+        if (users.find(user => user.email === email)) {
+            return res.status(400).json({ error: 'Email already registered' });
+        }
+
+        if (users.find(user => user.username === username)) {
+            return res.status(400).json({ error: 'Username already taken' });
+        }
+
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create new user
         const newUser = {
-            id: Date.now(),
+            id: users.length + 1,
             username,
             email,
             password: hashedPassword,
@@ -151,31 +114,17 @@ app.post('/api/auth/register', async (req, res) => {
         };
 
         users.push(newUser);
-        writeUsers(users);
+        await writeUsers(users);
 
-        // Create user's diary data file
-        const userData = {
-            categories: [
-                { id: 1, name: 'Education', color: '#4CAF50' },
-                { id: 2, name: 'Friends', color: '#2196F3' },
-                { id: 3, name: 'Future', color: '#FF9800' },
-                { id: 4, name: 'Wishes', color: '#E91E63' },
-                { id: 5, name: 'Clothes', color: '#9C27B0' },
-                { id: 6, name: 'Love', color: '#F44336' }
-            ],
-            entries: []
-        };
-        writeUserData(newUser.id, userData);
+        // Create token
+        const token = jwt.sign({ userId: newUser.id, email: newUser.email }, JWT_SECRET);
 
-        const token = jwt.sign({ userId: newUser.id, username: newUser.username }, JWT_SECRET);
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = newUser;
+
         res.status(201).json({
-            message: 'User registered successfully',
             token,
-            user: {
-                id: newUser.id,
-                username: newUser.username,
-                email: newUser.email
-            }
+            user: userWithoutPassword
         });
     } catch (error) {
         console.error('Registration error:', error);
@@ -183,36 +132,35 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// Login user
 app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    const users = readUsers();
-    const user = users.find(u => u.email === email);
-
-    if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
     try {
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET);
+        const users = await readUsers();
+        const user = users.find(u => u.email === email);
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Create token
+        const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET);
+
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
+
         res.json({
-            message: 'Login successful',
             token,
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email
-            }
+            user: userWithoutPassword
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -220,174 +168,242 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Get user profile
-app.get('/api/auth/profile', authenticateToken, (req, res) => {
-    const users = readUsers();
-    const user = users.find(u => u.id === req.user.userId);
+app.get('/api/auth/profile', authenticateToken, async (req, res) => {
+    try {
+        const users = await readUsers();
+        const user = users.find(u => u.id === req.user.userId);
 
-    if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-    }
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
-    res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt
-    });
-});
-
-// API Routes (Protected)
-
-// Get all categories for user
-app.get('/api/categories', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    res.json(userData.categories);
-});
-
-// Get all entries for user
-app.get('/api/entries', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    res.json(userData.entries);
-});
-
-// Get entries by category for user
-app.get('/api/entries/category/:categoryId', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const categoryId = parseInt(req.params.categoryId);
-    const entries = userData.entries.filter(entry => entry.categoryId === categoryId);
-    res.json(entries);
-});
-
-// Add new entry for user
-app.post('/api/entries', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const { title, content, categoryId } = req.body;
-    
-    if (!title || !content || !categoryId) {
-        return res.status(400).json({ error: 'Title, content, and categoryId are required' });
-    }
-    
-    const newEntry = {
-        id: Date.now(),
-        title,
-        content,
-        categoryId: parseInt(categoryId),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    };
-    
-    userData.entries.push(newEntry);
-    
-    if (writeUserData(req.user.userId, userData)) {
-        res.status(201).json(newEntry);
-    } else {
-        res.status(500).json({ error: 'Failed to save entry' });
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+    } catch (error) {
+        console.error('Profile error:', error);
+        res.status(500).json({ error: 'Failed to get profile' });
     }
 });
 
-// Update entry for user
-app.put('/api/entries/:id', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const entryId = parseInt(req.params.id);
-    const { title, content } = req.body;
-    
-    const entryIndex = userData.entries.findIndex(entry => entry.id === entryId);
-    
-    if (entryIndex === -1) {
-        return res.status(404).json({ error: 'Entry not found' });
-    }
-    
-    userData.entries[entryIndex] = {
-        ...userData.entries[entryIndex],
-        title: title || userData.entries[entryIndex].title,
-        content: content || userData.entries[entryIndex].content,
-        updatedAt: new Date().toISOString()
-    };
-    
-    if (writeUserData(req.user.userId, userData)) {
-        res.json(userData.entries[entryIndex]);
-    } else {
-        res.status(500).json({ error: 'Failed to update entry' });
+// Categories routes
+app.get('/api/categories', authenticateToken, async (req, res) => {
+    try {
+        const userData = await readUserData(req.user.userId);
+        res.json(userData.categories);
+    } catch (error) {
+        console.error('Get categories error:', error);
+        res.status(500).json({ error: 'Failed to get categories' });
     }
 });
 
-// Delete entry for user
-app.delete('/api/entries/:id', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const entryId = parseInt(req.params.id);
-    
-    const entryIndex = userData.entries.findIndex(entry => entry.id === entryId);
-    
-    if (entryIndex === -1) {
-        return res.status(404).json({ error: 'Entry not found' });
-    }
-    
-    userData.entries.splice(entryIndex, 1);
-    
-    if (writeUserData(req.user.userId, userData)) {
-        res.json({ message: 'Entry deleted successfully' });
-    } else {
-        res.status(500).json({ error: 'Failed to delete entry' });
-    }
-});
+app.post('/api/categories', authenticateToken, async (req, res) => {
+    try {
+        const { name, emoji, color } = req.body;
 
-// Add new category for user
-app.post('/api/categories', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const { name, color, emoji } = req.body;
-    
-    if (!name) {
-        return res.status(400).json({ error: 'Category name is required' });
-    }
-    
-    const newCategory = {
-        id: Date.now(),
-        name,
-        color: color || '#607D8B',
-        emoji: emoji || ''
-    };
-    
-    userData.categories.push(newCategory);
-    
-    if (writeUserData(req.user.userId, userData)) {
+        if (!name) {
+            return res.status(400).json({ error: 'Category name is required' });
+        }
+
+        const userData = await readUserData(req.user.userId);
+
+        // Check if category name already exists
+        if (userData.categories.find(cat => cat.name.toLowerCase() === name.toLowerCase())) {
+            return res.status(400).json({ error: 'Category with this name already exists' });
+        }
+
+        const newCategory = {
+            id: userData.nextCategoryId++,
+            name,
+            emoji: emoji || '',
+            color: color || '#607D8B'
+        };
+
+        userData.categories.push(newCategory);
+        await writeUserData(req.user.userId, userData);
+
         res.status(201).json(newCategory);
-    } else {
-        res.status(500).json({ error: 'Failed to save category' });
+    } catch (error) {
+        console.error('Create category error:', error);
+        res.status(500).json({ error: 'Failed to create category' });
     }
 });
 
-// Delete category for user
-app.delete('/api/categories/:id', authenticateToken, (req, res) => {
-    const userData = readUserData(req.user.userId);
-    const categoryId = parseInt(req.params.id);
-    
-    const categoryIndex = userData.categories.findIndex(cat => cat.id === categoryId);
-    
-    if (categoryIndex === -1) {
-        return res.status(404).json({ error: 'Category not found' });
-    }
-    
-    // Check if category has entries
-    const hasEntries = userData.entries.some(entry => entry.categoryId === categoryId);
-    if (hasEntries) {
-        return res.status(400).json({ error: 'Cannot delete category with existing entries. Please delete all entries first.' });
-    }
-    
-    userData.categories.splice(categoryIndex, 1);
-    
-    if (writeUserData(req.user.userId, userData)) {
+app.delete('/api/categories/:id', authenticateToken, async (req, res) => {
+    try {
+        const categoryId = parseInt(req.params.id);
+        const userData = await readUserData(req.user.userId);
+
+        // Check if category exists
+        const category = userData.categories.find(cat => cat.id === categoryId);
+        if (!category) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
+
+        // Check if category has entries
+        const entriesInCategory = userData.entries.filter(entry => entry.categoryId === categoryId);
+        if (entriesInCategory.length > 0) {
+            return res.status(400).json({ 
+                error: `Cannot delete category with ${entriesInCategory.length} entries. Please delete the entries first.` 
+            });
+        }
+
+        // Remove category
+        userData.categories = userData.categories.filter(cat => cat.id !== categoryId);
+        await writeUserData(req.user.userId, userData);
+
         res.json({ message: 'Category deleted successfully' });
-    } else {
+    } catch (error) {
+        console.error('Delete category error:', error);
         res.status(500).json({ error: 'Failed to delete category' });
     }
 });
 
-// Serve the main HTML file
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Entries routes
+app.get('/api/entries', authenticateToken, async (req, res) => {
+    try {
+        const userData = await readUserData(req.user.userId);
+        res.json(userData.entries);
+    } catch (error) {
+        console.error('Get entries error:', error);
+        res.status(500).json({ error: 'Failed to get entries' });
+    }
 });
 
+app.get('/api/entries/category/:categoryId', authenticateToken, async (req, res) => {
+    try {
+        const categoryId = parseInt(req.params.categoryId);
+        const userData = await readUserData(req.user.userId);
+
+        // Check if category exists
+        const category = userData.categories.find(cat => cat.id === categoryId);
+        if (!category) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
+
+        const entries = userData.entries.filter(entry => entry.categoryId === categoryId);
+        res.json(entries);
+    } catch (error) {
+        console.error('Get category entries error:', error);
+        res.status(500).json({ error: 'Failed to get category entries' });
+    }
+});
+
+app.get('/api/entries/:id', authenticateToken, async (req, res) => {
+    try {
+        const entryId = parseInt(req.params.id);
+        const userData = await readUserData(req.user.userId);
+
+        const entry = userData.entries.find(entry => entry.id === entryId);
+        if (!entry) {
+            return res.status(404).json({ error: 'Entry not found' });
+        }
+
+        res.json(entry);
+    } catch (error) {
+        console.error('Get entry error:', error);
+        res.status(500).json({ error: 'Failed to get entry' });
+    }
+});
+
+app.post('/api/entries', authenticateToken, async (req, res) => {
+    try {
+        const { title, content, categoryId } = req.body;
+
+        if (!title || !content || !categoryId) {
+            return res.status(400).json({ error: 'Title, content, and category are required' });
+        }
+
+        const userData = await readUserData(req.user.userId);
+
+        // Check if category exists
+        const category = userData.categories.find(cat => cat.id === categoryId);
+        if (!category) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
+
+        const newEntry = {
+            id: userData.nextEntryId++,
+            title,
+            content,
+            categoryId,
+            createdAt: new Date().toISOString()
+        };
+
+        userData.entries.push(newEntry);
+        await writeUserData(req.user.userId, userData);
+
+        res.status(201).json(newEntry);
+    } catch (error) {
+        console.error('Create entry error:', error);
+        res.status(500).json({ error: 'Failed to create entry' });
+    }
+});
+
+app.put('/api/entries/:id', authenticateToken, async (req, res) => {
+    try {
+        const entryId = parseInt(req.params.id);
+        const { title, content, categoryId } = req.body;
+
+        if (!title || !content || !categoryId) {
+            return res.status(400).json({ error: 'Title, content, and category are required' });
+        }
+
+        const userData = await readUserData(req.user.userId);
+
+        // Check if entry exists
+        const entryIndex = userData.entries.findIndex(entry => entry.id === entryId);
+        if (entryIndex === -1) {
+            return res.status(404).json({ error: 'Entry not found' });
+        }
+
+        // Check if category exists
+        const category = userData.categories.find(cat => cat.id === categoryId);
+        if (!category) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
+
+        // Update entry
+        userData.entries[entryIndex] = {
+            ...userData.entries[entryIndex],
+            title,
+            content,
+            categoryId,
+            updatedAt: new Date().toISOString()
+        };
+
+        await writeUserData(req.user.userId, userData);
+
+        res.json(userData.entries[entryIndex]);
+    } catch (error) {
+        console.error('Update entry error:', error);
+        res.status(500).json({ error: 'Failed to update entry' });
+    }
+});
+
+app.delete('/api/entries/:id', authenticateToken, async (req, res) => {
+    try {
+        const entryId = parseInt(req.params.id);
+        const userData = await readUserData(req.user.userId);
+
+        // Check if entry exists
+        const entryIndex = userData.entries.findIndex(entry => entry.id === entryId);
+        if (entryIndex === -1) {
+            return res.status(404).json({ error: 'Entry not found' });
+        }
+
+        // Remove entry
+        userData.entries.splice(entryIndex, 1);
+        await writeUserData(req.user.userId, userData);
+
+        res.json({ message: 'Entry deleted successfully' });
+    } catch (error) {
+        console.error('Delete entry error:', error);
+        res.status(500).json({ error: 'Failed to delete entry' });
+    }
+});
+
+// Start server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 }); 
