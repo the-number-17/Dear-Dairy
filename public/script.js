@@ -710,8 +710,7 @@ async function loadAdminData() {
     try {
         showLoading('usersList');
         
-        const response = await fetchAPI('/admin/users');
-        const users = await response.json();
+        const users = await fetchAPI('/admin/users');
         
         renderAdminStats(users);
         renderUsersList(users);
@@ -774,8 +773,7 @@ function renderUsersList(users) {
 
 async function viewUserDetails(userId) {
     try {
-        const response = await fetchAPI(`/admin/users/${userId}`);
-        const userData = await response.json();
+        const userData = await fetchAPI(`/admin/users/${userId}`);
         
         showUserDetailsModal(userData);
         
