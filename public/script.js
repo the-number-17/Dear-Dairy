@@ -15,6 +15,7 @@ const API_BASE = window.location.hostname === 'localhost'
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    hideAllModals(); // Ensure all modals are hidden on page load
     setupEventListeners();
     checkAuthStatus();
     initializeTheme();
@@ -208,7 +209,7 @@ function showProfileModal() {
             }
         }
         document.getElementById('profileCreatedAt').textContent = dateStr;
-        document.getElementById('profileModal').style.display = 'block';
+        document.getElementById('profileModal').style.display = 'flex';
     }
 }
 
@@ -382,14 +383,22 @@ function showCategories() {
     document.getElementById('categoriesSection').style.display = 'block';
 }
 
+// Hide all modals on page load
+function hideAllModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.style.display = 'none';
+    });
+}
+
 // Modal functions
 function showAddCategoryModal() {
-    document.getElementById('addCategoryModal').style.display = 'block';
+    document.getElementById('addCategoryModal').style.display = 'flex';
     document.getElementById('categoryName').focus();
 }
 
 function showAddEntryModal() {
-    document.getElementById('addEntryModal').style.display = 'block';
+    document.getElementById('addEntryModal').style.display = 'flex';
     document.getElementById('entryTitle').focus();
     updateWordCount(); // Initialize word count
 }
@@ -467,7 +476,7 @@ async function viewEntry(entryId) {
         document.getElementById('viewEntryContent').textContent = entry.content;
         document.getElementById('viewEntryDate').textContent = new Date(entry.createdAt).toLocaleDateString();
         
-        document.getElementById('viewEntryModal').style.display = 'block';
+        document.getElementById('viewEntryModal').style.display = 'flex';
     } catch (error) {
         showNotification('Failed to load entry', 'error');
     }
