@@ -16,6 +16,7 @@ const API_BASE = window.location.hostname === 'localhost'
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     hideAllModals(); // Ensure all modals are hidden on page load
+    hideAdminButton(); // Ensure admin button is hidden on page load
     setupEventListeners();
     checkAuthStatus();
     initializeTheme();
@@ -189,6 +190,11 @@ function logout() {
     localStorage.removeItem('user');
     showAuthSection();
     showNotification('Logged out successfully', 'info');
+    // Hide admin button when logging out
+    const adminButton = document.getElementById('adminButton');
+    if (adminButton) {
+        adminButton.style.display = 'none';
+    }
 }
 
 // Profile functions
@@ -373,6 +379,7 @@ async function openCategory(categoryId) {
     document.getElementById('currentCategoryName').textContent = category.name;
     document.getElementById('categoriesSection').style.display = 'none';
     document.getElementById('entriesSection').style.display = 'block';
+    document.getElementById('adminSection').style.display = 'none';
     
     await loadEntries(categoryId);
 }
@@ -382,6 +389,7 @@ function showCategories() {
     currentCategoryId = null;
     document.getElementById('entriesSection').style.display = 'none';
     document.getElementById('categoriesSection').style.display = 'block';
+    document.getElementById('adminSection').style.display = 'none';
 }
 
 // Hide all modals on page load
@@ -666,12 +674,22 @@ styleSheet.textContent = notificationStyles;
 document.head.appendChild(styleSheet);
 
 // Admin Functions
+function hideAdminButton() {
+    const adminButton = document.getElementById('adminButton');
+    if (adminButton) {
+        adminButton.style.display = 'none';
+    }
+}
+
 function showAdminButton() {
     const adminButton = document.getElementById('adminButton');
-    if (adminButton && currentUser && currentUser.email === 'Iam@admin.com') {
-        adminButton.style.display = 'inline-flex';
-    } else if (adminButton) {
-        adminButton.style.display = 'none';
+    if (adminButton) {
+        // Only show admin button for the specific admin user
+        if (currentUser && currentUser.email === 'Iam@admin.com') {
+            adminButton.style.display = 'inline-flex';
+        } else {
+            adminButton.style.display = 'none';
+        }
     }
 }
 
