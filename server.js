@@ -77,6 +77,14 @@ function authenticateToken(req, res, next) {
     });
 }
 
+// Admin middleware
+function requireAdmin(req, res, next) {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+}
+
 // Authentication routes
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -153,7 +161,11 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         // Create token
-        const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET);
+        const token = jwt.sign({ 
+            userId: user.id, 
+            email: user.email, 
+            role: user.role || 'user' 
+        }, JWT_SECRET);
 
         // Remove password from response
         const { password: _, ...userWithoutPassword } = user;
@@ -400,6 +412,77 @@ app.delete('/api/entries/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Delete entry error:', error);
         res.status(500).json({ error: 'Failed to delete entry' });
+    }
+});
+
+// Admin routes
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const users = await readUsers();
+        const usersWithStats = [];
+
+        for (const user of users) {
+            if (user.role === 'admin') continue; // Skip admin from list
+            
+            try {
+                const userData = await readUserData(user.id);
+                usersWithStats.push({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    createdAt: user.createdAt,
+                    totalEntries: userData.entries.length,
+                    totalCategories: userData.categories.length,
+                    lastEntry: userData.entries.length > 0 
+                        ? userData.entries[userData.entries.length - 1].createdAt 
+                        : null
+                });
+            } catch (error) {
+                // User has no diary data yet
+                usersWithStats.push({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    createdAt: user.createdAt,
+                    totalEntries: 0,
+                    totalCategories: 0,
+                    lastEntry: null
+                });
+            }
+        }
+
+        res.json(usersWithStats);
+    } catch (error) {
+        console.error('Admin get users error:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+app.get('/api/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const users = await readUsers();
+        const user = users.find(u => u.id === userId);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const userData = await readUserData(userId);
+        
+        res.json({
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                createdAt: user.createdAt
+            },
+            categories: userData.categories,
+            entries: userData.entries
+        });
+    } catch (error) {
+        console.error('Admin get user details error:', error);
+        res.status(500).json({ error: 'Failed to fetch user details' });
     }
 });
 

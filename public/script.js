@@ -178,6 +178,7 @@ function updateUserInfo() {
     if (currentUser) {
         document.getElementById('userUsername').textContent = currentUser.username;
         document.getElementById('userEmail').textContent = currentUser.email;
+        showAdminButton(); // Show admin button if user is admin
     }
 }
 
@@ -663,3 +664,149 @@ const notificationStyles = `
 const styleSheet = document.createElement('style');
 styleSheet.textContent = notificationStyles;
 document.head.appendChild(styleSheet);
+
+// Admin Functions
+function showAdminButton() {
+    const adminButton = document.getElementById('adminButton');
+    if (adminButton && currentUser && currentUser.role === 'admin') {
+        adminButton.style.display = 'inline-flex';
+    }
+}
+
+function showAdminPanel() {
+    document.getElementById('categoriesSection').style.display = 'none';
+    document.getElementById('entriesSection').style.display = 'none';
+    document.getElementById('adminSection').style.display = 'block';
+    loadAdminData();
+}
+
+function hideAdminPanel() {
+    document.getElementById('adminSection').style.display = 'none';
+    document.getElementById('categoriesSection').style.display = 'block';
+    document.getElementById('entriesSection').style.display = 'none';
+}
+
+async function loadAdminData() {
+    try {
+        showLoading('usersList');
+        
+        const response = await fetchAPI('/admin/users');
+        const users = await response.json();
+        
+        renderAdminStats(users);
+        renderUsersList(users);
+        
+    } catch (error) {
+        console.error('Error loading admin data:', error);
+        showNotification('Failed to load admin data', 'error');
+    }
+}
+
+function renderAdminStats(users) {
+    const totalUsers = users.length;
+    const totalEntries = users.reduce((sum, user) => sum + user.totalEntries, 0);
+    const activeUsers = users.filter(user => user.totalEntries > 0).length;
+    
+    document.getElementById('totalUsers').textContent = totalUsers;
+    document.getElementById('totalEntries').textContent = totalEntries;
+    document.getElementById('activeUsers').textContent = activeUsers;
+}
+
+function renderUsersList(users) {
+    const usersList = document.getElementById('usersList');
+    
+    if (users.length === 0) {
+        usersList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>No Users Found</h3>
+                <p>No users have registered yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    usersList.innerHTML = users.map(user => `
+        <div class="user-card" onclick="viewUserDetails(${user.id})">
+            <div class="user-card-header">
+                <div class="user-info">
+                    <h4>${user.username}</h4>
+                    <p>${user.email}</p>
+                </div>
+                <div class="user-stats">
+                    <div class="user-stat">
+                        <span>${user.totalEntries}</span>
+                        <small>Entries</small>
+                    </div>
+                    <div class="user-stat">
+                        <span>${user.totalCategories}</span>
+                        <small>Categories</small>
+                    </div>
+                </div>
+            </div>
+            <div class="user-meta">
+                <small>Member since: ${new Date(user.createdAt).toLocaleDateString()}</small>
+                ${user.lastEntry ? `<small>Last entry: ${new Date(user.lastEntry).toLocaleDateString()}</small>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function viewUserDetails(userId) {
+    try {
+        const response = await fetchAPI(`/admin/users/${userId}`);
+        const userData = await response.json();
+        
+        showUserDetailsModal(userData);
+        
+    } catch (error) {
+        console.error('Error loading user details:', error);
+        showNotification('Failed to load user details', 'error');
+    }
+}
+
+function showUserDetailsModal(userData) {
+    const { user, categories, entries } = userData;
+    
+    // Set modal title
+    document.getElementById('adminUserTitle').textContent = `User Details - ${user.username}`;
+    
+    // Set user info
+    document.getElementById('adminUserUsername').textContent = user.username;
+    document.getElementById('adminUserEmail').textContent = user.email;
+    document.getElementById('adminUserCreatedAt').textContent = new Date(user.createdAt).toLocaleDateString();
+    document.getElementById('adminUserCategories').textContent = categories.length;
+    document.getElementById('adminUserEntries').textContent = entries.length;
+    
+    // Render categories
+    const categoriesList = document.getElementById('adminUserCategoriesList');
+    categoriesList.innerHTML = categories.map(category => `
+        <div class="category-item">
+            <h5>${category.emoji} ${category.name}</h5>
+            <p>Color: ${category.color}</p>
+        </div>
+    `).join('');
+    
+    // Render recent entries (show last 5)
+    const entriesList = document.getElementById('adminUserEntriesList');
+    const recentEntries = entries.slice(-5).reverse();
+    entriesList.innerHTML = recentEntries.map(entry => {
+        const category = categories.find(cat => cat.id === entry.categoryId);
+        return `
+            <div class="entry-item">
+                <h5>${entry.title}</h5>
+                <p>Category: ${category ? category.name : 'Unknown'}</p>
+                <p>Created: ${new Date(entry.createdAt).toLocaleDateString()}</p>
+                <div class="entry-preview">${entry.content.substring(0, 100)}${entry.content.length > 100 ? '...' : ''}</div>
+            </div>
+        `;
+    }).join('');
+    
+    // Show modal
+    document.getElementById('adminUserModal').style.display = 'flex';
+}
+
+function refreshAdminData() {
+    loadAdminData();
+    showNotification('Admin data refreshed', 'success');
+}

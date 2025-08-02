@@ -5,5 +5,13 @@
     "email": "aviral1754@gmail.com",
     "password": "$2a$10$Co16xfQf3.jzpEKT2YB7GuvEq4V0rtMKv8QJ04PQxVodiYNQWkxHW",
     "createdAt": "2025-08-02T00:03:16.583Z"
+  },
+  {
+    "id": 2,
+    "username": "Admin",
+    "email": "Iam@admin.com",
+    "password": "$2a$10$peJGYKYD7rQO87Tk/idiKu/gTDVJJdKYUliz0a7DscPyBp0LxxhFG",
+    "role": "admin",
+    "createdAt": "2025-08-02T01:00:47.650Z"
   }
 ]
