@@ -79,7 +79,7 @@ function authenticateToken(req, res, next) {
 
 // Admin middleware
 function requireAdmin(req, res, next) {
-    if (!req.user || req.user.role !== 'admin') {
+    if (!req.user || req.user.email !== 'Iam@admin.com') {
         return res.status(403).json({ error: 'Admin access required' });
     }
     next();
@@ -422,7 +422,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
         const usersWithStats = [];
 
         for (const user of users) {
-            if (user.role === 'admin') continue; // Skip admin from list
+            if (user.email === 'Iam@admin.com') continue; // Skip admin from list
             
             try {
                 const userData = await readUserData(user.id);

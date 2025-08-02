@@ -668,8 +668,10 @@ document.head.appendChild(styleSheet);
 // Admin Functions
 function showAdminButton() {
     const adminButton = document.getElementById('adminButton');
-    if (adminButton && currentUser && currentUser.role === 'admin') {
+    if (adminButton && currentUser && currentUser.email === 'Iam@admin.com') {
         adminButton.style.display = 'inline-flex';
+    } else if (adminButton) {
+        adminButton.style.display = 'none';
     }
 }
 
